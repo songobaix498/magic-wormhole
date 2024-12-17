@@ -1,71 +1,96 @@
 name: Tests
 
+# Определяем триггеры для работы CI (push и pull_request)
 on:
   push:
-    branches: [ master ]
+    branches: 
+      - master
   pull_request:
-    branches: [ master ]
+    branches: 
+      - master
 
 jobs:
+  # Job для запуска тестов
   testing:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Используем последний доступный Ubuntu
     strategy:
       matrix:
+        # Определяем несколько версий Python, чтобы протестировать проект на каждой из них
         python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
+    # Шаг 1: Клонируем репозиторий
     - uses: actions/checkout@v2
 
+    # Шаг 2: Настроим Python
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
 
+    # Шаг 3: Устанавливаем зависимости
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip tox codecov
+        python -m pip install --upgrade pip  # Обновляем pip
+        pip install tox codecov  # Устанавливаем tox и codecov для тестирования и покрытия
 
+    # Шаг 4: Запускаем тесты с tox
     - name: Test
       run: |
-        python --version
-        tox -e coverage
+        python --version  # Проверяем версию Python для уверенности
+        tox -e coverage  # Запускаем tox с конфигурацией для покрытия
 
+    # Шаг 5: Загрузка покрытия в Codecov
     - name: Upload Coverage
-      run: codecov
+      run: |
+        codecov  # Отправляем отчёт о покрытии на Codecov
 
+  # Job для запуска Flake8
   flake8:
     runs-on: ubuntu-latest
 
     steps:
+    # Шаг 1: Клонируем репозиторий
     - uses: actions/checkout@v2
 
+    # Шаг 2: Настроим Python
     - name: Set up Python
       uses: actions/setup-python@v2
 
+    # Шаг 3: Устанавливаем зависимости
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip tox
+        python -m pip install --upgrade pip  # Обновляем pip
+        pip install tox  # Устанавливаем tox
 
+    # Шаг 4: Запускаем проверку кодстайла с Flake8
     - name: Flake8
       run: |
-        python --version
-        tox -e flake8less
+        python --version  # Проверяем версию Python
+        tox -e flake8less  # Запускаем tox с конфигурацией для Flake8
 
+  # Job для генерации документации
   docs:
     runs-on: ubuntu-latest
 
     steps:
+    # Шаг 1: Клонируем репозиторий
     - uses: actions/checkout@v2
 
+    # Шаг 2: Настроим Python
     - name: Set up Python
       uses: actions/setup-python@v2
 
+    # Шаг 3: Устанавливаем зависимости для документации
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip tox
-        python -m pip install -r docs/requirements.txt
+        python -m pip install --upgrade pip  # Обновляем pip
+        pip install tox  # Устанавливаем tox
+        pip install -r docs/requirements.txt  # Устанавливаем зависимости для документации
 
+    # Шаг 4: Генерация документации
     - name: Docs
       run: |
-        python --version
-        tox -e docs
+        python --version  # Проверяем версию Python
+        tox -e docs  # Генерируем документацию с помощью tox
+
