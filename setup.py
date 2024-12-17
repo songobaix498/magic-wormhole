@@ -1,73 +1,95 @@
-from setuptools import setup
+import sqlite3
+import pandas as pd
+from sqlalchemy import create_engine
 
-import versioneer
+# Подключение к базе данных SQLite
+def connect_to_db(db_name="database.db"):
+    """
+    Функция для подключения к базе данных SQLite.
+    Возвращает объект соединения с базой данных.
+    """
+    try:
+        conn = sqlite3.connect(db_name)
+        print("Подключение к базе данных установлено.")
+        return conn
+    except sqlite3.Error as e:
+        print(f"Ошибка при подключении к базе данных: {e}")
+        return None
 
-commands = versioneer.get_cmdclass()
+# Создание таблицы (если не существует)
+def create_table(conn):
+    """
+    Функция для создания таблицы в базе данных.
+    Если таблица уже существует, то она не будет пересоздана.
+    """
+    create_table_sql = '''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        age INTEGER,
+        email TEXT UNIQUE
+    );
+    '''
+    try:
+        cursor = conn.cursor()
+        cursor.execute(create_table_sql)
+        conn.commit()  # Подтверждаем изменения в базе данных
+        print("Таблица 'users' успешно создана.")
+    except sqlite3.Error as e:
+        print(f"Ошибка при создании таблицы: {e}")
 
-trove_classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Topic :: Security :: Cryptography",
-    "Topic :: System :: Networking",
-    "Topic :: System :: Systems Administration",
-    "Topic :: Utilities",
-    ]
+# Вставка данных в таблицу
+def insert_user_data(conn, user_data):
+    """
+    Функция для вставки данных о пользователях в таблицу 'users'.
+    :param conn: соединение с базой данных
+    :param user_data: список кортежей с данными пользователей
+    """
+    insert_sql = "INSERT INTO users (name, age, email) VALUES (?, ?, ?)"
+    try:
+        cursor = conn.cursor()
+        cursor.executemany(insert_sql, user_data)
+        conn.commit()
+        print(f"{len(user_data)} пользователя успешно добавлены.")
+    except sqlite3.Error as e:
+        print(f"Ошибка при вставке данных: {e}")
 
-setup(name="magic-wormhole",
-      version=versioneer.get_version(),
-      description="Securely transfer data between computers",
-      long_description=open('README.md', 'r').read(),
-      long_description_content_type='text/markdown',
-      author="Brian Warner",
-      author_email="warner-magic-wormhole@lothar.com",
-      license="MIT",
-      url="https://github.com/warner/magic-wormhole",
-      classifiers=trove_classifiers,
+# Извлечение всех данных из таблицы
+def fetch_all_users(conn):
+    """
+    Функция для извлечения всех пользователей из таблицы 'users'.
+    Возвращает DataFrame с данными.
+    """
+    select_sql = "SELECT * FROM users"
+    try:
+        df = pd.read_sql(select_sql, conn)  # Используем pandas для извлечения данных
+        print("Данные о пользователях успешно извлечены.")
+        return df
+    except sqlite3.Error as e:
+        print(f"Ошибка при извлечении данных: {e}")
+        return None
 
-      package_dir={"": "src"},
-      packages=["wormhole",
-                "wormhole.cli",
-                "wormhole._dilation",
-                "wormhole.test",
-                "wormhole.test.dilate",
-                ],
-      data_files=[(".", ["wormhole_complete.bash", "wormhole_complete.zsh", "wormhole_complete.fish"])],
-      entry_points={
-          "console_scripts":
-          [
-              "wormhole = wormhole.cli.cli:wormhole",
-          ]
-      },
-      install_requires=[
-          "spake2==0.9", "pynacl",
-          "attrs >= 19.2.0", # 19.2.0 replaces cmp parameter with eq/order
-          "twisted[tls] >= 17.5.0", # 17.5.0 adds failAfterFailures=
-          "autobahn[twisted] >= 0.14.1",
-          "automat",
-          "cryptography",
-          "tqdm >= 4.13.0", # 4.13.0 fixes crash on NetBSD
-          "click",
-          "humanize",
-          "txtorcon >= 18.0.2", # 18.0.2 fixes py3.4 support
-          "zipstream-ng >= 1.7.1, <2.0.0",
-          "iterable-io >= 1.0.0, <2.0.0",
-          "qrcode >= 8.0",
-      ],
-      extras_require={
-          ':sys_platform=="win32"': ["pywin32"],
-          "dev": ["tox", "pyflakes",
-                  "magic-wormhole-transit-relay==0.3.1",
-                  "magic-wormhole-mailbox-server==0.3.1"],
-          "dilate": ["noiseprotocol"],
-          "build": ["twine", "dulwich", "readme_renderer", "gpg", "wheel"],
-      },
-      test_suite="wormhole.test",
-      cmdclass=commands,
-      )
+# Пример работы с базой данных
+def main():
+    conn = connect_to_db()  # Подключаемся к базе данных
+    if conn:
+        create_table(conn)  # Создаем таблицу, если её нет
+
+        # Пример данных для вставки
+        users = [
+            ('Алексей', 28, 'aleksey@example.com'),
+            ('Мария', 34, 'maria@example.com'),
+            ('Иван', 45, 'ivan@example.com')
+        ]
+        insert_user_data(conn, users)  # Вставляем данные
+
+        # Извлекаем все данные о пользователях и выводим их
+        users_df = fetch_all_users(conn)
+        if users_df is not None:
+            print(users_df)
+
+        conn.close()  # Закрываем соединение с базой данных
+
+# Запуск основной программы
+if __name__ == "__main__":
+    main()
